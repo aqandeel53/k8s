@@ -1,0 +1,115 @@
+##############################################################################################################
+#
+#
+#                           Namespace 
+#
+#
+##############################################################################################################
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-namespace
+
+##############################################################################################################
+#
+#
+#                           Persistent Volume 
+#
+#
+##############################################################################################################
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+  namespace: my-namespace
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/pv
+
+##############################################################################################################
+#
+#
+#                           Persistent Volume Claim 
+#
+#
+##############################################################################################################
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+  namespace: my-namespace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+##############################################################################################################
+#
+#
+#                           Deployment with Multiple Containers
+#
+#
+##############################################################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  namespace: my-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: app-container-1
+        image: nginx:latest
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html
+          name: shared-storage
+      - name: app-container-2
+        image: busybox:latest
+        command: [ "sh", "-c", "echo Hello from container 2 > /data/shared/message.txt; sleep 3600" ]
+        volumeMounts:
+        - mountPath: /data/shared
+          name: shared-storage
+      volumes:
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: my-pvc
+
+##############################################################################################################
+#
+#
+#                           Service 
+#
+#
+##############################################################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: my-namespace
+spec:
+  selector:
+    app: my-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
